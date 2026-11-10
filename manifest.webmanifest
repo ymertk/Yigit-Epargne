@@ -1,14 +1,14 @@
 {
-  "name": "Mon Budget",
-  "short_name": "Mon Budget",
-  "description": "Tâches et suivi des dépenses",
+  "name": "Mon Patrimoine",
+  "short_name": "Patrimoine",
+  "description": "Épargne et patrimoine",
   "lang": "fr",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f4f6f5",
-  "theme_color": "#0f766e",
+  "theme_color": "#4338ca",
   "icons": [
     {
       "src": "icon-192.png",
@@ -26,5 +26,6 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "id": "./?app=patrimoine"
 }

@@ -3,24 +3,24 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0f766e">
+<meta name="theme-color" content="#4338ca">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Mon Budget">
+<meta name="apple-mobile-web-app-title" content="Patrimoine">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Mon Budget</title>
+<title>Mon Patrimoine</title>
 <style>
 :root{
   --c1:#2a78d6;--c2:#eb6834;--c3:#1baf7a;--c4:#eda100;--c5:#e87ba4;--c6:#008300;--c7:#6250d6;--c8:#8a8f8d;
   --bg:#f4f6f5; --card:#fff; --ink:#15201d; --mute:#65736f; --line:#e3e8e6;
-  --pri:#0f766e; --pri2:#ccebe7; --ok:#15803d; --warn:#b45309; --bad:#b91c1c;
+  --pri:#4338ca; --pri2:#e0e7ff; --ok:#15803d; --warn:#b45309; --bad:#b91c1c;
   --r:14px;
 }
 @media (prefers-color-scheme:dark){
-  :root{--c1:#3987e5;--c2:#d95926;--c3:#199e70;--c4:#c98500;--c5:#d55181;--c6:#2f9e2f;--c7:#9085e9;--c8:#7d8784;--bg:#0d1312; --card:#151d1b; --ink:#e7efec; --mute:#93a39e; --line:#24302d; --pri:#2dd4bf; --pri2:#123a35; --ok:#4ade80; --warn:#fbbf24; --bad:#f87171;}
+  :root{--c1:#3987e5;--c2:#d95926;--c3:#199e70;--c4:#c98500;--c5:#d55181;--c6:#2f9e2f;--c7:#9085e9;--c8:#7d8784;--bg:#0d1312; --card:#151d1b; --ink:#e7efec; --mute:#93a39e; --line:#24302d; --pri:#a5b4fc; --pri2:#25275a; --ok:#4ade80; --warn:#fbbf24; --bad:#f87171;}
 }
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow-x:hidden;max-width:100%;-webkit-text-size-adjust:100%;text-size-adjust:100%;overscroll-behavior-x:none;touch-action:pan-y}
@@ -105,7 +105,7 @@ td:last-child{text-align:right;font-variant-numeric:tabular-nums}
 </head>
 <body>
 <header>
-  <div><h1 id="title">Mon Budget</h1><small id="subtitle"></small></div>
+  <div><h1 id="title">Mon Patrimoine</h1><small id="subtitle"></small></div>
   <button class="icon" id="btnSettings" aria-label="Réglages">⚙️</button>
 </header>
 <main id="view"></main>
@@ -116,7 +116,9 @@ td:last-child{text-align:right;font-variant-numeric:tabular-nums}
 
 <script>
 /* ================== Veri ================== */
-const KEY = 'cuzdan.v1';
+/* Configuration de cette copie de l'application (voir build) */
+const APP_CFG = {key:'patrimoine.v1', name:'Mon Patrimoine', focus:'patrimoine'};
+const KEY = APP_CFG.key;
 const DEF = {
   todos: [], expenses: [], installments: [], recurring: [], credits: [], catRules: {},
   assets: [], debts: [], goals: [], budgets: {}, prices: {},
@@ -191,7 +193,7 @@ function browserReminderTick(){
     t.lastFire = tm; changed=true;
     if(now-tm < 6*36e5){
       toast('🔔 '+t.text);
-      try { if('Notification' in window && Notification.permission==='granted'){ if(navigator.serviceWorker&&navigator.serviceWorker.ready) navigator.serviceWorker.ready.then(r=>r.showNotification('Rappel Mon Budget',{body:t.text,icon:'icon-192.png'})).catch(()=>{}); else new Notification('Rappel Mon Budget',{body:t.text}); } } catch(e){}
+      try { if('Notification' in window && Notification.permission==='granted'){ if(navigator.serviceWorker&&navigator.serviceWorker.ready) navigator.serviceWorker.ready.then(r=>r.showNotification('Rappel Mon Patrimoine',{body:t.text,icon:'icon-192.png'})).catch(()=>{}); else new Notification('Rappel Mon Patrimoine',{body:t.text}); } } catch(e){}
     }
   });
   if(changed){ save(); if(tab==='todo'||tab==='ozet') render(); }
@@ -253,7 +255,8 @@ const TABS = [
   {id:'patri', name:'Patrimoine', icon:'<path d="M4 10h3v7H4zm6.5 0h3v7h-3zM2 19h20v3H2zm15-9h3v7h-3zM12 1 2 6v2h20V6z"/>'},
   {id:'rapor', name:'Rapports', icon:'<path d="M11 2v20c-5.07-.5-9-4.79-9-10s3.93-9.5 9-10zm2.03 0v8.99H22c-.47-4.74-4.24-8.52-8.97-8.99zm0 11.01V22c4.74-.47 8.5-4.25 8.97-8.99z"/>'}
 ];
-let tab = (location.hash||'').slice(1); if(!TABS.find(t=>t.id===tab)) tab='ozet';
+if(APP_CFG.focus==='patrimoine'){ const ord=['patri','ozet','harcama','odeme','rapor']; TABS.splice(0,TABS.length,...ord.map(id=>TABS.find(t=>t.id===id))); TABS[1].name='Résumé'; }
+let tab = (location.hash||'').slice(1); if(!TABS.find(t=>t.id===tab)) tab=TABS[0].id;
 let sub = { odeme:'taksit', harcama:'liste', todo:'acik' };
 
 function renderNav(){
@@ -264,7 +267,7 @@ $('#nav').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!
 function render(){
   renderNav();
   const t = TABS.find(x=>x.id===tab);
-  $('#title').textContent = t.id==='ozet' ? 'Mon Budget' : t.name;
+  $('#title').textContent = t.id===TABS[0].id ? APP_CFG.name : t.name;
   $('#subtitle').textContent = monthName(thisYM());
   $('#fab').style.display = (tab==='ozet'||tab==='rapor') ? 'none' : '';
   ({ozet:vOzet, todo:vTodo, harcama:vHarcama, odeme:vOdeme, patri:vPatri, rapor:vRapor})[tab]();
@@ -309,11 +312,12 @@ function vOzet(){
     <div class="stat"><div class="l">Échéances + réguliers</div><div class="v">${tl(oblTotal)}</div></div>
     <div class="stat"><div class="l">Dépensé ce mois-ci</div><div class="v">${tl(spent)}</div></div>
   </div>
+  ${APP_CFG.focus==='patrimoine'?wealthSummary(m):''}
   ${flowCard(m, 'Ce mois-ci')}
   ${budgetCard(m)}
-  <div class="card"><h2>À faire <button class="btn sm ghost" data-go="todo">Tout voir</button></h2>
+  ${APP_CFG.focus==='patrimoine'?'':`  <div class="card"><h2>À faire <button class="btn sm ghost" data-go="todo">Tout voir</button></h2>
     ${openTodos.length? openTodos.slice(0,4).map(todoRow).join('') : '<div class="empty">Aucune tâche en cours</div>'}
-  </div>
+  </div>`}
   <div class="card"><h2>Catégories ce mois-ci</h2>
     ${cats.length? cats.map(([c,v])=>`<div style="margin:8px 0"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(c)}</span><span class="amt">${tl(v)}</span></div><div class="bar"><i style="width:${v/maxC*100}%"></i></div></div>`).join('') : '<div class="empty">Aucune dépense saisie ce mois-ci</div>'}
   </div>`;
@@ -651,7 +655,7 @@ $('#btnSettings').onclick=()=>{
     <button type="button" class="btn ghost" id="impSet" style="width:100%">📥 Importer des relevés</button>
     <label>Restaurer une sauvegarde (.json)</label><input type="file" id="imp" accept="application/json,.json">
   </form>`, d=>{ st.income=+d.income||0; S.incomeHist[thisYM()]=st.income; });
-  $('#exp').onclick=()=>{ if(window.Android&&Android.shareBackup){ Android.shareBackup(JSON.stringify(S,null,1)); return; } const b=new Blob([JSON.stringify(S,null,1)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='mon-budget-sauvegarde-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); };
+  $('#exp').onclick=()=>{ if(window.Android&&Android.shareBackup){ Android.shareBackup(JSON.stringify(S,null,1)); return; } const b=new Blob([JSON.stringify(S,null,1)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='mon-patrimoine-sauvegarde-'+new Date().toISOString().slice(0,10)+'.json'; a.click(); };
   $('#impSet').onclick=()=>{ closeSheet(); pickFiles(); };
   $('#cpy').onclick=async()=>{ try{ await navigator.clipboard.writeText(JSON.stringify(S)); toast('Sauvegarde copiée dans le presse-papiers'); }catch(e){ toast('Copie impossible'); } };
   $('#imp').onchange=async e=>{ const f=e.target.files[0]; if(!f) return; try{ const j=JSON.parse(await f.text()); if(!j.settings) throw 0; S=Object.assign(structuredClone(DEF),j); S.incomeHist=S.incomeHist||{}; save(); closeSheet(); render(); toast('Sauvegarde restaurée'); }catch(_){ toast('Fichier de sauvegarde invalide'); } };
@@ -1141,6 +1145,17 @@ function vPatri(){
   $('#view').querySelectorAll('[data-goal-add]').forEach(el=>el.onclick=()=>goalAdd(S.goals.find(a=>a.id===el.dataset.goalAdd)));
   bindPie();
   refreshCrypto();
+}
+function wealthSummary(m){
+  const N=netAt(m), prev=addMonths(m,-1), hasPrev=S.assets.some(a=>valAt(a,prev)!=null), dN=hasPrev?N-netAt(prev):null;
+  const R=monthReport(prev), ep=catSpent(prev)['Épargne']||0, rate=R.inc?(R.inc-(R.total-ep))/R.inc*100:null;
+  const g=S.goals.slice(0,3);
+  return `<div class="card" data-go="patri" style="cursor:pointer"><h2>Patrimoine net <span class="note">›</span></h2>
+    <div style="font-size:26px;font-weight:800" class="${N<0?'neg':''}">${tl(N)}</div>
+    ${dN!=null?`<div class="${dN<0?'neg':'pos'}" style="font-size:13px;font-weight:600">${dN<0?'▼':'▲'} ${tl(Math.abs(dN))} sur un mois</div>`:''}
+    <div class="grid2" style="margin-top:8px"><div><div class="note">Placé le mois dernier</div><div class="amt">${tl(ep)}</div></div><div><div class="note">Taux d'épargne (${new Date(prev+'-01T00:00').toLocaleDateString('fr-FR',{month:'short'})})</div><div class="amt ${rate!=null&&rate<0?'neg':'pos'}">${rate!=null?num(rate,0)+' %':'–'}</div></div></div>
+    ${g.map(x=>{ const pc=Math.min(100,(+x.saved||0)/(+x.target||1)*100); return `<div style="margin-top:10px;font-size:14px;display:flex;justify-content:space-between"><span>${esc(x.emoji||'🎯')} ${esc(x.name)}</span><span class="note">${num(pc,0)} %</span></div><div class="bar"><i style="width:${pc}%"></i></div>`; }).join('')}
+  </div>`;
 }
 function delBtn(id){ return `<button type="button" class="btn ghost" id="${id}" style="color:var(--bad);flex:0 0 auto">Supprimer</button>`; }
 function assetForm(a){
