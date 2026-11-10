@@ -128,7 +128,7 @@ let S;
 try { S = Object.assign(structuredClone(DEF), JSON.parse(localStorage.getItem(KEY) || '{}')); }
 catch (e) { S = structuredClone(DEF); }
 S.settings = Object.assign({}, DEF.settings, S.settings);
-S.incomeHist = S.incomeHist || {}; S.credits = S.credits || []; S.catRules = S.catRules || {}; ['assets','debts','goals'].forEach(k=>S[k]=S[k]||[]); S.budgets=S.budgets||{}; S.prices=S.prices||{};
+S.incomeHist = S.incomeHist || {}; S.credits = S.credits || []; S.catRules = S.catRules || {}; S.detailCards = S.detailCards || []; ['assets','debts','goals'].forEach(k=>S[k]=S[k]||[]); S.budgets=S.budgets||{}; S.prices=S.prices||{};
 function migrate(){
   const cur = ym(new Date());
   S.recurring.forEach(r=>{ if(!r.start){ const p=(r.paid||[]).slice().sort(); r.start = p[0] && p[0]<cur ? p[0] : cur; } r.paidAmt = r.paidAmt||{}; });
@@ -418,7 +418,7 @@ function vHarcama(){
       <button class="icon" id="pm">‹</button>
       <div style="text-align:center"><div style="font-weight:600">${monthName(expMonth)}</div><div class="amt" style="font-size:20px">${tl2(total)}</div></div>
       <button class="icon" id="nm">›</button></div>
-    <button class="btn ghost" id="impBtn" style="width:100%">📥 Importer des relevés bancaires (CSV)</button>
+    <button class="btn ghost" id="impBtn" style="width:100%">📥 Importer des relevés bancaires (PDF ou CSV)</button>
     ${list.length? Object.entries(groups).map(([d,arr])=>`<div class="card"><h2><span>${new Date(d+'T00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})}</span><span class="amt">${tl2(arr.filter(e=>!e.recId).reduce((s,e)=>s+ +e.amount,0))}</span></h2>
       ${arr.map(e=>`<div class="row"><div class="grow" data-edit-exp="${e.id}"><div class="t">${esc(e.note||e.category)}</div><div class="s">${e.recId?'🔁 Paiement régulier · ':''}${esc(e.category)}</div></div><div class="amt" style="${e.recId?'color:var(--mute)':e.amount<0?'color:var(--ok)':''}">${e.amount<0?'+'+tl2(-e.amount):tl2(+e.amount)}</div><button class="icon" data-del-exp="${e.id}">🗑</button></div>`).join('')}</div>`).join('')
     : '<div class="card"><div class="empty">Aucune dépense ce mois-ci. Ajoute-en avec +.</div></div>'}`;
@@ -651,7 +651,7 @@ $('#btnSettings').onclick=()=>{
     <p class="note">Les données restent uniquement sur ce téléphone. Fais une sauvegarde avant de supprimer l'application ou de changer de téléphone.</p>
     <div class="actions"><button type="button" class="btn ghost" id="exp">Télécharger la sauvegarde</button><button type="button" class="btn ghost" id="cpy">Copier</button></div>
     <h3 style="margin-top:24px">Relevés bancaires</h3>
-    <p class="note">Importe les opérations exportées depuis ta banque (CSV, OFX ou QIF). Les doublons sont ignorés.</p>
+    <p class="note">Importe tes relevés PDF ou les opérations exportées par ta banque (CSV, OFX, QIF). Les doublons sont ignorés.</p>
     <button type="button" class="btn ghost" id="impSet" style="width:100%">📥 Importer des relevés</button>
     <label>Restaurer une sauvegarde (.json)</label><input type="file" id="imp" accept="application/json,.json">
   </form>`, d=>{ st.income=+d.income||0; S.incomeHist[thisYM()]=st.income; });
@@ -823,8 +823,25 @@ function detectLoans(all){
 const txHash = t => t.date+'|'+t.amount.toFixed(2);
 
 async function importFiles(files){
-  let all=[], bad=[], perFile=[];
+  let all=[], bad=[], perFile=[], checks=[], newCards=new Set();
+  const pdfs = files.filter(f=>/\.pdf$/i.test(f.name) || f.type==='application/pdf');
+  let P=null;
+  if(pdfs.length){
+    toast('Lecture de '+pdfs.length+' PDF…');
+    try{ const lib = await import('./pdf.min.mjs'); lib.GlobalWorkerOptions.workerSrc = new URL('./pdf.worker.min.mjs', location.href).href; P = {lib, ...(await import('./pdfimport.mjs'))}; }
+    catch(e){ P=null; }
+  }
   for(const f of files){
+    if(pdfs.includes(f)){
+      try{
+        if(!P) throw new Error('pdf');
+        const r = P.parseStatement(await P.extractPages(P.lib, new Uint8Array(await f.arrayBuffer())));
+        if(r.check) checks.push({name:f.name, ...r.check});
+        if(r.card) newCards.add(r.card);
+        if(r.tx.length){ all=all.concat(r.tx); perFile.push(r.tx); } else bad.push(f.name);
+      }catch(e){ bad.push(f.name); }
+      continue;
+    }
     try{
       const t = await readText(f);
       const tx = /<STMTTRN>/i.test(t) ? parseOFX(t) : /^!Type:/mi.test(t) ? parseQIF(t) : parseCSV(t);
@@ -833,9 +850,15 @@ async function importFiles(files){
   }
   if(!all.length){
     openSheet(`<h3>Format non reconnu</h3><p>Je n'ai trouvé aucune opération dans ${bad.length>1?'ces fichiers':'ce fichier'}.</p>
-      <p class="note">Sur le site ou l'appli de ta banque, cherche « Exporter » / « Télécharger les opérations » et choisis le format <b>CSV</b> (ou Excel/CSV, OFX, QIF). Les relevés PDF ne peuvent pas être lus.</p>
+      <p class="note">Sur le site ou l'appli de ta banque, cherche « Exporter » / « Télécharger les opérations » et choisis le format <b>CSV</b> (ou Excel/CSV, OFX, QIF). Pour les PDF, seuls les relevés avec des colonnes Débit / Crédit (comme ceux de la Société Générale) sont reconnus pour l'instant.</p>
       <div class="actions"><button class="btn" data-close>OK</button></div>`);
     return;
+  }
+  newCards.forEach(c=>{ if(!S.detailCards.includes(c)) S.detailCards.push(c); });
+  if(S.detailCards.length){
+    const isDeb = t => t.cardDebit ? S.detailCards.includes(t.cardDebit) : false;
+    perFile = perFile.map(tx=>tx.filter(t=>!isDeb(t))); all = all.filter(t=>!isDeb(t));
+    S.expenses = S.expenses.filter(e=>{ const m=(e.label||'').match(/DEBIT MENSUEL CARTE.*X(\d{4})/); return !(m && S.detailCards.includes(m[1])); });
   }
   const loans = detectLoans(all);
   // doublons : comparés aux opérations déjà présentes et aux fichiers précédents du même import
@@ -858,6 +881,8 @@ async function importFiles(files){
     </table>
     <p class="note">Les dépenses sont classées automatiquement par catégorie. Tu pourras corriger une catégorie : la correction s'appliquera aussi aux opérations semblables.</p>`
     :`<p>Toutes ces opérations (${dup}) sont déjà dans l'application.</p>`}
+    ${checks.length?(checks.every(c=>c.ok)?`<p class="note pos">✅ ${checks.length} relevé${checks.length>1?'s':''} PDF vérifié${checks.length>1?'s':''} : les totaux correspondent à ceux de la banque.</p>`
+      :`<p class="note neg">⚠️ Totaux différents pour : ${esc(checks.filter(c=>!c.ok).map(c=>c.name).join(', '))}. Certaines opérations ont pu être mal lues, vérifie-les.</p>`):''}
     ${bad.length?`<p class="note">Fichier(s) non reconnu(s) : ${esc(bad.join(', '))}</p>`:''}
     <div class="actions"><button type="button" class="btn ghost" data-close>Annuler</button>${fresh.length?'<button class="btn">Importer</button>':''}</div></form>`,
   ()=>{
@@ -955,7 +980,7 @@ function openDetect(afterImport){
   });
 }
 function pickFiles(){
-  const i=document.createElement('input'); i.type='file'; i.multiple=true; i.accept='.csv,.txt,.ofx,.qif,.tsv,text/csv,text/plain';
+  const i=document.createElement('input'); i.type='file'; i.multiple=true; i.accept='.pdf,application/pdf,.csv,.txt,.ofx,.qif,.tsv,text/csv,text/plain';
   i.style.display='none'; document.body.appendChild(i);
   i.onchange=()=>{ const f=[...i.files]; i.remove(); if(f.length) importFiles(f); };
   i.click();
